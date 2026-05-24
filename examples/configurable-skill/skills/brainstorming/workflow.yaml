@@ -1,0 +1,99 @@
+version: 1
+skill: brainstorming
+
+workflow:
+  artifact_defaults:
+    design_doc_path: "docs/superpowers/specs/YYYY-MM-DD--design.md"
+    approval_state: "design_approved"
+
+  steps:
+    - id: explore_context
+      instruction: "Inspect the current project structure, docs, conventions, and recent changes before asking detailed questions."
+      rules:
+        - "Use fast local search and targeted file reads."
+        - "Do not ask the user where obvious project files are."
+        - "If the request spans multiple independent subsystems, flag that it may need decomposition before continuing."
+      outputs:
+        - "A short summary of relevant existing context."
+        - "A list of constraints that affect the design."
+      completion: "You can summarize the relevant current state and constraints."
+
+    - id: decompose_if_needed
+      instruction: "Decide whether the request is too large for one design cycle."
+      rules:
+        - "If the request contains independent subsystems, propose a decomposition and ask which sub-project to design first."
+        - "If the request is appropriately scoped, continue without adding ceremony."
+      completion: "The work is scoped to one coherent design target."
+
+    - id: clarify_intent
+      instruction: "Ask one clarifying question at a time until goal, success criteria, scope, and constraints are clear."
+      rules:
+        - "Prefer multiple-choice questions when useful."
+        - "Ask open-ended questions only when the answer space is genuinely unknown."
+        - "Do not combine several unrelated questions in one message."
+      outputs:
+        - "Confirmed goal."
+        - "Success criteria."
+        - "In-scope and out-of-scope boundaries."
+      completion: "The user intent is stable enough to propose approaches."
+
+    - id: propose_approaches
+      instruction: "Present 2-3 viable approaches with trade-offs and a recommendation."
+      rules:
+        - "Lead with the recommended option."
+        - "Explain why the recommendation fits the user's constraints."
+        - "Include at least one meaningful alternative unless the design space is genuinely singular."
+      outputs:
+        - "Recommended approach."
+        - "Rejected alternatives and reasons."
+      completion: "The user has selected or accepted one approach."
+
+    - id: present_design
+      instruction: "Present the design in sections sized to the complexity of the request and ask for approval."
+      sections:
+        - "Goal and non-goals"
+        - "Proposed architecture or workflow"
+        - "Key interfaces, files, data structures, or commands"
+        - "Error handling and edge cases"
+        - "Testing strategy"
+      rules:
+        - "Keep each section concise unless the topic is nuanced."
+        - "Ask whether each major section looks right before locking it in."
+        - "If the user rejects a section, revise before continuing."
+      completion: "The design is concrete enough for implementation planning."
+      gate: user_approval
+
+    - id: write_design_doc
+      instruction: "Write the approved design to the configured design document path."
+      rules:
+        - "Use the default path unless the user or repository conventions specify another location."
+        - "The document must be readable by another agent without conversation history."
+        - "Do not include unresolved placeholders."
+      outputs:
+        - "A persisted design document."
+      completion: "The design document exists and captures all approved decisions."
+
+    - id: spec_self_review
+      instruction: "Review the written design document before asking the user to proceed."
+      checklist:
+        - "No TBD, TODO, placeholder, or ambiguous sections remain."
+        - "The architecture matches the requested feature."
+        - "The scope is small enough for one implementation plan."
+        - "Requirements are not contradictory."
+        - "Testing expectations are explicit."
+      completion: "Any issues found during review have been fixed inline."
+
+    - id: user_reviews_spec
+      instruction: "Ask the user to review the saved design document before any implementation planning."
+      prompt: "Spec written. Please review it and let me know if you want changes before we write the implementation plan."
+      rules:
+        - "If the user requests changes, update the design document and repeat spec_self_review."
+        - "Only mark the design approved after explicit user approval."
+      completion: "The user has approved the written design document."
+      gate: user_approval
+
+  terminal_action:
+    type: stop
+    state:
+      design_approved: true
+    reason: "Brainstorming is complete. Project-level hooks may choose a next skill."

@@ -1,0 +1,49 @@
+version: 1
+
+hooks:
+  before_skill:
+    brainstorming:
+      - id: block_direct_implementation
+        condition: "implementation_started != true"
+        required: true
+        description: "Only start brainstorming before implementation work begins. If implementation has already started, stop and ask whether to switch back to design."
+
+    writing-plans:
+      - id: require_approved_design
+        condition: "design_approved == true"
+        required: true
+        description: "Writing an implementation plan requires an approved design. If no approved design exists, stop and ask the user to approve or provide one."
+
+    executing-plans:
+      - id: require_approved_plan
+        condition: "plan_approved == true"
+        required: true
+        description: "Executing work requires an approved implementation plan. If no approved plan exists, stop and ask the user to approve one."
+
+  after_skill:
+    brainstorming:
+      - id: continue_to_plan
+        skill: writing-plans
+        condition: "design_approved == true"
+        description: "After an approved design is produced, continue by writing an implementation plan."
+
+    writing-plans:
+      - id: execute_inline_plan
+        skill: executing-plans
+        condition: "plan_approved == true && execution_mode == 'inline'"
+        description: "If the user approved the plan and chose inline execution, continue by executing the plan."
+
+  before_claim:
+    "*":
+      - id: require_fresh_verification
+        skill: verification-before-completion
+        condition: "claim_type in ['complete', 'fixed', 'passing', 'ready', 'verified', 'implemented']"
+        required: true
+        description: "Before claiming completion, fixes, passing checks, readiness, verification, or implementation, require fresh verification evidence."
+
+  on_error:
+    "*":
+      - id: debug_recoverable_failure
+        skill: systematic-debugging
+        condition: "error_recoverable == true"
+        description: "When a recoverable error occurs, switch to systematic debugging instead of guessing."
